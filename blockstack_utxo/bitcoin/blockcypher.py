@@ -14,7 +14,7 @@ import requests
 BLOCKCYPHER_BASE_URL = 'https://api.blockcypher.com/v1/btc/main'
 
 from .blockchain_client import BlockchainClient
-
+from virtualchain.lib.transactions import VirtualPaymentOutput
 
 class BlockcypherClient(BlockchainClient):
     def __init__(self, api_key=None):
@@ -26,22 +26,20 @@ class BlockcypherClient(BlockchainClient):
 
 
 def format_unspents(unspents):
-
-    # sandowhich confirmed and unconfiremd unspents
+    
+    # sandwhich confirmed and unconfiremd unspents
     all_unspents = unspents.get('txrefs', []) + unspents.get('unconfirmed_txrefs', [])
+    vouts = []
+    for s in unspents:
+        vout = VirtualPaymentOutput( s['tx_hash'], s['value'], [], \
+                                     transaction_hash=s['tx_hash'], confirmations=s['confirmations'], output_index=s['tx_output_n'] )
 
-    return [{
-        "transaction_hash": s["tx_hash"],
-        "output_index": s["tx_output_n"],
-        "value": s["value"],
-        "script_hex": s.get("script"),
-        "confirmations": s["confirmations"],
-        }
-        for s in all_unspents
-    ]
+        vouts.append( vout )
+
+    return vouts
 
 
-def get_unspents(address, blockchain_client=BlockcypherClient()):
+def get_inputs(address, blockchain_client=BlockcypherClient()):
     """ Get the spendable transaction outputs, also known as UTXOs or
         unspent transaction outputs.
     """

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-    pybitcoin
+    blockstack-utxo
     ~~~~~
 
     :copyright: (c) 2014 by Halfmoon Labs

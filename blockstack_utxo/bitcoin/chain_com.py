@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-    pybitcoin
+    blockstack-utxo
     ~~~~~
 
     :copyright: (c) 2014 by Halfmoon Labs
@@ -12,6 +12,7 @@ import json, requests, traceback
 CHAIN_API_BASE_URL = 'https://api.chain.com/v2'
 
 from .blockchain_client import BlockchainClient
+from virtualchain.lib.transactions import VirtualPaymentOutput
 
 class ChainComClient(BlockchainClient):
     def __init__(self, api_key_id=None, api_key_secret=None):
@@ -22,19 +23,18 @@ class ChainComClient(BlockchainClient):
             self.auth = None
 
 def format_unspents(unspents):
-    return [{
-        "transaction_hash": s["transaction_hash"],
-        "output_index": s["output_index"],
-        "value": s["value"],
-        "script_opcodes": s["script"],
-        "script_hex": s["script_hex"],
-        "script_type": s["script_type"],
-        "confirmations": s["confirmations"]
-        }
-        for s in unspents
-    ]
+    vouts = []
+    for s in unspents:
+        vout = VirtualPaymentOutput( s['script_hex'], s['value'], [], \
+                                     transaction_hash=s['transaction_hash'], confirmations=s['confirmations'], output_index=s['output_index'],
+                                     script_opcodes=s['script'], script_type=s['script_type'] )
 
-def get_unspents(address, blockchain_client=ChainComClient()):
+        vouts.append( vout )
+
+    return vouts
+
+
+def get_inputs(address, blockchain_client=ChainComClient()):
     """ Get the spendable transaction outputs, also known as UTXOs or
         unspent transaction outputs.
     """
@@ -55,6 +55,7 @@ def get_unspents(address, blockchain_client=ChainComClient()):
         raise Exception('Received non-JSON response from chain.com.')
     
     return format_unspents(unspents)
+
 
 def broadcast_transaction(hex_tx, blockchain_client):
     """ Dispatch a raw hex transaction to the network.

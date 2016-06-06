@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-    pybitcoin
+    blockstack-utxo
     ~~~~~
 
     :copyright: (c) 2014 by Halfmoon Labs
@@ -8,11 +8,11 @@
 """
 
 import json, requests, traceback
-from ..hash import reverse_hash
 
 BLOCKCHAIN_API_BASE_URL = "https://blockchain.info"
 
 from .blockchain_client import BlockchainClient
+from virtualchain.lib.transactions import VirtualPaymentOutput
 
 class BlockchainInfoClient(BlockchainClient):
     def __init__(self, api_key=None):
@@ -22,18 +22,27 @@ class BlockchainInfoClient(BlockchainClient):
         else:
             self.auth = None
 
-def format_unspents(unspents):
-    return [{
-        "transaction_hash": reverse_hash(s["tx_hash"]),
-        "output_index": s["tx_output_n"],
-        "value": s["value"],
-        "script_hex": s["script"],
-        "confirmations": s["confirmations"]
-        }
-        for s in unspents
-    ]
 
-def get_unspents(address, blockchain_client=BlockchainInfoClient()):
+def reverse_hash(hash, hex_format=True):
+    """ hash is in hex or binary format
+    """
+    if not hex_format:
+        hash = hexlify(hash)
+    return "".join(reversed([hash[i:i+2] for i in range(0, len(hash), 2)]))
+
+
+def format_unspents(unspents):
+    vouts = []
+    for s in unspents:
+        vout = VirtualPaymentOutput( s['script'], s['value'], [], \
+                                     transaction_hash=reverse_hash(s['tx_hash']), confirmations=s['confirmations'], output_index=s['tx_output_n'] )
+
+        vouts.append( vout )
+
+    return vouts
+
+
+def get_inputs(address, blockchain_client=BlockchainInfoClient()):
     """ Get the spendable transaction outputs, also known as UTXOs or
         unspent transaction outputs.
     """

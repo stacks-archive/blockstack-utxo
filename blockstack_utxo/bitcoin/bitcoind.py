@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-    pybitcoin
+    blockstack-utxo
     ~~~~~
 
     :copyright: (c) 2014 by Halfmoon Labs
@@ -8,14 +8,12 @@
 """
 
 import httplib
-
 from bitcoinrpc.authproxy import AuthServiceProxy
 
-from ..constants import SATOSHIS_PER_COIN
-
-from ..address import script_hex_to_address
+SATOSHIS_PER_COIN = 10**8 
 
 from .blockchain_client import BlockchainClient
+from virtualchain.lib.transactions import *
 
 def create_bitcoind_service_proxy(
     rpc_username, rpc_password, server='127.0.0.1', port=8332, use_https=False):
@@ -35,18 +33,19 @@ class BitcoindClient(BlockchainClient):
             rpc_password, use_https=use_https, server=server, port=port)
         self.version_byte = version_byte
 
-def format_unspents(unspents):
-    return [{
-        "transaction_hash": s["txid"],
-        "output_index": s["vout"],
-        "value": int(round(s["amount"]*SATOSHIS_PER_COIN)),
-        "script_hex": s["scriptPubKey"],
-        "confirmations": s["confirmations"]
-        }
-        for s in unspents
-    ]
 
-def get_unspents(address, blockchain_client):
+def format_unspents(unspents):
+    vouts = []
+    for s in unspents:
+        vout = VirtualPaymentOutput( s['scriptPubKey']['hex'], int(round(s["amount"] * SATOSHIS_PER_BITCOIN)), s['scriptPubKey'].get('addresses', []), \
+                                     transaction_hash=s['txid'], confirmations=s['confirmations'], output_index=s['output_index'] )
+
+        vouts.append( vout )
+
+    return vouts
+
+
+def get_inputs(address, blockchain_client):
     """ Get the spendable transaction outputs, also known as UTXOs or
         unspent transaction outputs.
 
@@ -68,8 +67,10 @@ def get_unspents(address, blockchain_client):
     unspents = []
     for u in all_unspents:
         if 'address' not in u:
+            """
             u['address'] = script_hex_to_address(u['scriptPubKey'],
                                                  version_byte=version_byte)
+            """
         if 'spendable' in u and u['spendable'] is False:
             continue
         if u['address'] == address:
