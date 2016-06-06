@@ -11,9 +11,9 @@
 import os
 import sys
 from ConfigParser import SafeConfigParser
-import pybitcoin
 import logging
 from .blockstack_utxo import BlockstackUTXOClient
+from .bitcoin import * 
 
 DEBUG = True
 FIRST_BLOCK_MAINNET = 373601        # well-known value for blockstack-server; doesn't ever change
@@ -63,9 +63,9 @@ SUPPORTED_UTXO_PARAMS = {
 }
 
 
-def default_utxo_provider( config_file=None ):
+def default_blockchain_provider( config_file=None ):
    """
-   Get defualt UTXO provider options from a config file.
+   Get defualt blockchain service provider options from a config file.
    """
 
    global SUPPORTED_UTXO_PROVIDERS
@@ -83,9 +83,9 @@ def default_utxo_provider( config_file=None ):
    return None
 
 
-def all_utxo_providers( config_file=None ):
+def all_blockchain_providers( config_file=None ):
    """
-   Get our defualt UTXO provider options from a config file.
+   Get our default blockchain provider options from a config file.
    """
 
    global SUPPORTED_UTXO_PROVIDERS
@@ -105,31 +105,31 @@ def all_utxo_providers( config_file=None ):
    return provider_names
 
 
-def default_utxo_provider_opts( utxo_provider, config_file=None ):
+def default_blockchain_provider_opts( service_provider, config_file=None ):
    """
    Get the default options for a utxo provider.
    """
 
-   if utxo_provider == "chain_com":
+   if service_provider == "chain_com":
        return default_chaincom_opts( config_file=config_file )
 
-   elif utxo_provider == "blockcypher":
+   elif service_provider == "blockcypher":
        return default_blockcypher_opts( config_file=config_file )
 
-   elif utxo_provider == "blockchain_info":
+   elif service_provider == "blockchain_info":
        return default_blockchain_info_opts( config_file=config_file )
 
-   elif utxo_provider == "bitcoind_utxo":
+   elif service_provider == "bitcoind_utxo":
        return default_bitcoind_utxo_opts( config_file=config_file )
 
-   elif utxo_provider == "blockstack_utxo":
+   elif service_provider == "blockstack_utxo":
        return default_blockstack_utxo_opts( config_file=config_file )
 
-   elif utxo_provider == "mock_utxo":
+   elif service_provider == "mock_utxo":
        return default_mock_utxo_opts( config_file=config_file )
 
    else:
-       raise Exception("Unsupported UTXO provider '%s'" % utxo_provider)
+       raise Exception("Unsupported service provider '%s'" % service_provider)
 
 
 def default_chaincom_opts( config_file=None ):
@@ -157,7 +157,8 @@ def default_chaincom_opts( config_file=None ):
          api_key_secret = parser.get('chain_com', 'api_key_secret')
 
    chaincom_opts = {
-       'utxo_provider': "chain_com",
+       "blockchain": "bitcoin",
+       'service_provider': "chain_com",
        'api_key_id': api_key_id,
        'api_key_secret': api_key_secret
    }
@@ -192,7 +193,8 @@ def default_blockcypher_opts( config_file=None ):
          api_token = parser.get('blockcypher', 'api_token')
 
    blockcypher_opts = {
-       'utxo_provider': "blockcypher",
+       "blockchain": "bitcoin",
+       'service_provider': "blockcypher",
        'api_token': api_token
    }
 
@@ -226,7 +228,8 @@ def default_blockchain_info_opts( config_file=None ):
            api_token = parser.get("blockchain_info", "api_token")
 
    blockchain_info_opts = {
-       "utxo_provider": "blockchain_info",
+       "blockchain": "bitcoin",
+       "service_provider": "blockchain_info",
        "api_token": api_token
    }
 
@@ -296,7 +299,8 @@ def default_bitcoind_utxo_opts( config_file=None ):
        port = 8332
 
    bitcoind_utxo_opts = {
-       "utxo_provider": "bitcoind_utxo",
+       "blockchain": "bitcoin",
+       "service_provider": "bitcoind_utxo",
        "rpc_username": rpc_username,
        "rpc_password": rpc_password,
        "server": server,
@@ -338,7 +342,8 @@ def default_blockstack_utxo_opts( config_file=None ):
            port = int(parser.get("blockstack_utxo", "port"))
 
    blockstack_utxo_opts = {
-       "utxo_provider": "blockstack_utxo",
+       "blockchain": "bitcoin",
+       "service_provider": "blockstack_utxo",
        "server": server,
        "port": port
    }
@@ -426,7 +431,8 @@ def default_mock_utxo_opts( config_file=None ):
 
 
    default_mock_utxo_opts = {
-      "utxo_provider": "mock_utxo",
+      "blockchain": "bitcoin",
+      "service_provider": "mock_utxo",
       "tx_list": mock_tx_list,
       "tx_file": mock_tx_file,
       "start_block": mock_start_block,
@@ -444,36 +450,28 @@ def default_mock_utxo_opts( config_file=None ):
    return default_mock_utxo_opts
 
 
-def connect_utxo_provider( utxo_opts ):
+def connect_blockchain_provider( service_name, serice_opts ):
    """
-   Set up and return a UTXO provider client.
+   Set up and return a blockchain service provider client.
    """
 
-   global SUPPORTED_UTXO_PROVIDERS
+   if service_name == "chain_com":
+       return ChainComClient( service_opts['api_key_id'], service_opts['api_key_secret'] )
 
-   if not utxo_opts.has_key("utxo_provider"):
-       raise Exception("No UTXO provider given")
+   elif service_name == "blockcypher":
+       return BlockcypherClient( service_opts['api_token'] )
 
-   utxo_provider = utxo_opts['utxo_provider']
-   if not utxo_provider in SUPPORTED_UTXO_PROVIDERS:
-       raise Exception("Unsupported UTXO provider '%s'" % utxo_provider)
+   elif service_name == "blockchain_info":
+       return BlockchainInfoClient( service_opts['api_token'] )
 
-   if utxo_provider == "chain_com":
-       return pybitcoin.ChainComClient( utxo_opts['api_key_id'], utxo_opts['api_key_secret'] )
+   elif service_name == "bitcoind_utxo":
+       return BitcoindClient( service_opts['rpc_username'], service_opts['rpc_password'], use_https=service_opts['use_https'], 
+               server=service_opts['server'], port=service_opts['port'], version_byte=service_opts['version_byte'] )
 
-   elif utxo_provider == "blockcypher":
-       return pybitcoin.BlockcypherClient( utxo_opts['api_token'] )
+   elif service_name == "blockstack_utxo":
+       return BlockstackUTXOClient( service_opts['server'], service_opts['port'] )
 
-   elif utxo_provider == "blockchain_info":
-       return pybitcoin.BlockchainInfoClient( utxo_opts['api_token'] )
-
-   elif utxo_provider == "bitcoind_utxo":
-       return pybitcoin.BitcoindClient( utxo_opts['rpc_username'], utxo_opts['rpc_password'], use_https=utxo_opts['use_https'], server=utxo_opts['server'], port=utxo_opts['port'], version_byte=utxo_opts['version_byte'] )
-
-   elif utxo_provider == "blockstack_utxo":
-       return BlockstackUTXOClient( utxo_opts['server'], utxo_opts['port'] )
-
-   elif utxo_provider == "mock_utxo":
+   elif service_name == "mock_utxo":
        # requires blockstack tests to be installed
        try:
            from blockstack_integration_tests import connect_mock_utxo_provider
@@ -484,24 +482,65 @@ def connect_utxo_provider( utxo_opts ):
            except ImportError:
                raise Exception("Mock UTXO provider requires blockstack_integration_tests to be installed")
 
-       return connect_mock_utxo_provider( utxo_opts )
+       return connect_mock_utxo_provider( service_opts )
 
    else:
-       raise Exception("Unrecognized UTXO provider '%s'" % utxo_provider )
+       raise Exception("Unrecognized service provider '%s'" % service_provider )
 
 
-def get_utxo_provider_client(utxo_provider, config_file):
+def get_blockchain_provider_client(service_provider, config_file):
    """
    Get or instantiate our blockchain UTXO provider's client.
    Return None if we were unable to connect
    """
 
-   utxo_opts = default_utxo_provider_opts( utxo_provider, config_file )
+   service_opts = default_blockchain_provider_opts( service_provider, config_file )
+   assert "blockchain" in service_opts
+   assert "service_provider" in service_opts 
 
    try:
-       utxo_provider = connect_utxo_provider( utxo_opts )
-       return utxo_provider
+       service_provider = connect_service_provider( service_opts )
+       return service_provider
    except Exception, e:
        log.exception(e)
        return None
+
+
+def get_inputs(address, blockchain_client=None):
+    """ Gets the unspent outputs for a given address.
+    """
+    if isinstance(blockchain_client, BlockcypherClient):
+        return blockcypher.get_inputs(address, blockchain_client)
+    elif isinstance(blockchain_client, BlockchainInfoClient):
+        return blockchain_info.get_inputs(address, blockchain_client)
+    elif isinstance(blockchain_client, ChainComClient):
+        return chain_com.get_inputs(address, blockchain_client)
+    elif isinstance(blockchain_client, (BitcoindClient, AuthServiceProxy)):
+        return bitcoind.get_inputs(address, blockchain_client)
+    elif hasattr(blockchain_client, "get_inputs"):
+        return blockchain_client.get_inputs( address )
+    elif isinstance(blockchain_client, BlockchainClient):
+        raise Exception('That blockchain interface is not supported.')
+    else:
+        raise Exception('A blockchain service client object is required')
+
+
+def broadcast_transaction(hex_tx, blockchain_client):
+    """ Dispatches a raw hex transaction to the network.
+    """
+    if isinstance(blockchain_client, BlockcypherClient):
+        return blockcypher.broadcast_transaction(hex_tx, blockchain_client)
+    elif isinstance(blockchain_client, BlockchainInfoClient):
+        return blockchain_info.broadcast_transaction(hex_tx, blockchain_client)
+    elif isinstance(blockchain_client, ChainComClient):
+        return chain_com.broadcast_transaction(hex_tx, blockchain_client)
+    elif isinstance(blockchain_client, (BitcoindClient, AuthServiceProxy)):
+        return bitcoind.broadcast_transaction(hex_tx, blockchain_client)
+    elif hasattr(blockchain_client, "broadcast_transaction"):
+        return blockchain_client.broadcast_transaction( hex_tx )
+    elif isinstance(blockchain_client, BlockchainClient):
+        raise Exception('That blockchain interface is not supported.')
+    else:
+        raise Exception('A blockchain service client object is required')
+
 
