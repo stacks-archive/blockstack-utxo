@@ -8,6 +8,7 @@
     :license: MIT, see LICENSE for more details.
 """
 
-import blockstack_utxo
+from .blockstack import blockstack_utxo
+from .bitcoin import *
 from utxo import *
 from version import __version__
